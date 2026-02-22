@@ -126,6 +126,7 @@ class AudioRecorder : PluginRegistry.RequestPermissionsResultListener {
             )
             return
         }
+        totalSamples = 0L
         audioRecord?.startRecording()
         recorderState = RecorderState.Recording
         if (encoder?.encodeForWav == true) {
@@ -153,7 +154,7 @@ class AudioRecorder : PluginRegistry.RequestPermissionsResultListener {
                             commonEncoder.queueInputBuffer(audioData)
                         }
                         val rms = calculateRms(audioData, read)
-                        totalSamples += read / channelCount
+                        totalSamples += (read / 2) / channelCount
                         val durationSec =
                             totalSamples.toDouble() / (recorderSettings?.sampleRate
                                 ?: Constants.DEFAULT_SAMPLE_RATE)
@@ -170,7 +171,6 @@ class AudioRecorder : PluginRegistry.RequestPermissionsResultListener {
     fun stop(result: Result) {
         try {
             audioRecord?.stop()
-            totalSamples = 0L
             recorderState = RecorderState.Stopped
             if (encoder?.encodeForWav == true) {
                 wavEncoder?.stop(result)
