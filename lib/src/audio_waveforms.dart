@@ -43,14 +43,17 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
   Offset _dragOffset = Offset.zero;
 
   double _initialOffsetPosition = 0.0;
-  late double _initialPosition;
+
+  // For RTL, initial position starts at 0 (waves grow from right edge)
+  // For LTR, initial position starts at negative half thickness
+  late double _initialPosition = widget.waveStyle.waveformRenderMode.isRtl
+      ? 0.0
+      : -(widget.waveStyle.waveThickness / 2);
+
   Duration currentlyRecordedDuration = Duration.zero;
   late StreamSubscription<Duration> streamSubscription;
 
-  late final Size _size;
-  late final WaveStyle _waveStyle;
   late final RecorderController _recorderController;
-  late final bool _isRtl = widget.waveStyle.waveformRenderMode.isRtl;
 
   /// Duration timestamp labels shown on the waveform, added every second during recording.
   final List<Label> _labels = [];
@@ -58,12 +61,7 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
   @override
   void initState() {
     super.initState();
-    _size = widget.size;
-    _waveStyle = widget.waveStyle;
     _recorderController = widget.recorderController;
-    // For RTL, initial position starts at 0 (waves grow from right edge)
-    // For LTR, initial position starts at negative half thickness
-    _initialPosition = _isRtl ? 0.0 : -(_waveStyle.waveThickness / 2);
     _recorderController.addListener(_recorderControllerListener);
     streamSubscription =
         _recorderController.onCurrentDuration.listen((duration) {
@@ -72,7 +70,7 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
       if (currentSeconds > 0 && _labels.length < currentSeconds) {
         _labels.add(
           Label(
-            content: _waveStyle.showHourInDuration
+            content: widget.waveStyle.showHourInDuration
                 ? Duration(seconds: currentSeconds).toHHMMSS()
                 : currentSeconds.toMMSS(),
             // Calculate label position based on current waveform length
@@ -81,8 +79,8 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
             // Y-axis: Position below the waveform container
             //         (container height + line height = below the waveform)
             offset: Offset(
-              _waveStyle.spacing * _recorderController.waveData.length,
-              _size.height + _waveStyle.durationLinesHeight,
+              widget.waveStyle.spacing * _recorderController.waveData.length,
+              widget.size.height + widget.waveStyle.durationLinesHeight,
             ),
           ),
         );
@@ -120,43 +118,44 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
           ),
           child: RepaintBoundary(
             child: CustomPaint(
-              size: _size,
+              size: widget.size,
               painter: RecorderWavePainter(
                 labels: _labels,
-                waveThickness: _waveStyle.waveThickness,
-                middleLineThickness: _waveStyle.middleLineThickness,
-                middleLineColor: _waveStyle.middleLineColor,
+                waveThickness: widget.waveStyle.waveThickness,
+                middleLineThickness: widget.waveStyle.middleLineThickness,
+                middleLineColor: widget.waveStyle.middleLineColor,
                 waveData: _recorderController.waveData,
                 callPushback: _recorderController.shouldRefresh,
-                bottomPadding: _waveStyle.bottomPadding ?? _size.height / 2,
-                spacing: _waveStyle.spacing,
-                waveCap: _waveStyle.waveCap,
-                showBottom: _waveStyle.showBottom,
-                showTop: _waveStyle.showTop,
-                waveColor: _waveStyle.waveColor,
-                showMiddleLine: _waveStyle.showMiddleLine,
+                bottomPadding:
+                    widget.waveStyle.bottomPadding ?? widget.size.height / 2,
+                spacing: widget.waveStyle.spacing,
+                waveCap: widget.waveStyle.waveCap,
+                showBottom: widget.waveStyle.showBottom,
+                showTop: widget.waveStyle.showTop,
+                waveColor: widget.waveStyle.waveColor,
+                showMiddleLine: widget.waveStyle.showMiddleLine,
                 totalCurrentBackDistance: _totalBackDistance,
                 dragOffset: _dragOffset,
                 pushBack: _pushBackWave,
                 initialPosition: _initialPosition,
-                extendWaveform: _waveStyle.extendWaveform,
-                showHourInDuration: _waveStyle.showHourInDuration,
-                showDurationLabel: _waveStyle.showDurationLabel,
-                durationLinesColor: _waveStyle.durationLinesColor,
-                durationStyle: _waveStyle.durationStyle,
-                durationTextPadding: _waveStyle.durationTextPadding,
-                durationLinesHeight: _waveStyle.durationLinesHeight,
-                labelSpacing: _waveStyle.labelSpacing,
-                gradient: _waveStyle.gradient,
+                extendWaveform: widget.waveStyle.extendWaveform,
+                showHourInDuration: widget.waveStyle.showHourInDuration,
+                showDurationLabel: widget.waveStyle.showDurationLabel,
+                durationLinesColor: widget.waveStyle.durationLinesColor,
+                durationStyle: widget.waveStyle.durationStyle,
+                durationTextPadding: widget.waveStyle.durationTextPadding,
+                durationLinesHeight: widget.waveStyle.durationLinesHeight,
+                labelSpacing: widget.waveStyle.labelSpacing,
+                gradient: widget.waveStyle.gradient,
                 shouldClearLabels: _recorderController.shouldClearLabels,
                 revertClearLabelCall: _recorderController.revertClearLabelCall,
                 setCurrentPositionDuration:
                     _recorderController.setScrolledPositionDuration,
                 shouldCalculateScrolledPosition:
                     widget.shouldCalculateScrolledPosition,
-                scaleFactor: _waveStyle.scaleFactor,
+                scaleFactor: widget.waveStyle.scaleFactor,
                 currentlyRecordedDuration: currentlyRecordedDuration,
-                isRtl: _isRtl,
+                isRtl: widget.waveStyle.waveformRenderMode.isRtl,
               ),
             ),
           ),
@@ -166,20 +165,22 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
   }
 
   /// Gets width of a single wave including space between two waves.
-  double get _waveWidth => _waveStyle.waveThickness + _waveStyle.spacing;
+  double get _waveWidth =>
+      widget.waveStyle.waveThickness + widget.waveStyle.spacing;
 
   /// Provides extra clipping if needed.
   double get _extraClipperHeight {
-    if (_waveStyle.showDurationLabel) {
+    if (widget.waveStyle.showDurationLabel) {
       // If duration labels are enabled and for some reason labels are getting
       // cut or effecting other widget cut. This will help to reduce or add
       // clipping.
-      if (_waveStyle.extraClipperHeight != null) {
-        return _waveStyle.extraClipperHeight!;
+      if (widget.waveStyle.extraClipperHeight != null) {
+        return widget.waveStyle.extraClipperHeight!;
       }
       // Default clipping. Calculated from duration line.
-      return _waveStyle.durationLinesHeight +
-          (_waveStyle.durationStyle.fontSize ?? _waveStyle.durationLinesHeight);
+      return widget.waveStyle.durationLinesHeight +
+          (widget.waveStyle.durationStyle.fontSize ??
+              widget.waveStyle.durationLinesHeight);
     } else {
       // If labels are disabled then there is no need to add/remove extra
       // clipping.
@@ -192,7 +193,7 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
     _recorderController.setRefresh(false);
     _isScrolled = true;
 
-    switch (_waveStyle.waveformRenderMode) {
+    switch (widget.waveStyle.waveformRenderMode) {
       case WaveformRenderMode.ltr:
         _handleScrollLtr(details);
       case WaveformRenderMode.rtl:
@@ -210,10 +211,10 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
   ///
   ///This will also handle refreshing the wave after scrolled
   void _pushBackWave() {
-    if (_isRtl) {
+    if (widget.waveStyle.waveformRenderMode.isRtl) {
       if (!_isScrolled) {
         _totalBackDistance =
-            _totalBackDistance + Offset(_waveStyle.spacing, 0.0);
+            _totalBackDistance + Offset(widget.waveStyle.spacing, 0.0);
       }
 
       // For RTL: handle refresh after scrolling
@@ -231,15 +232,15 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
     } else {
       if (_isScrolled) {
         _initialPosition =
-            _waveStyle.spacing * _recorderController.waveData.length -
-                _size.width / 2;
+            widget.waveStyle.spacing * _recorderController.waveData.length -
+                widget.size.width / 2;
         _totalBackDistance =
-            _totalBackDistance + Offset(_waveStyle.spacing, 0.0);
+            _totalBackDistance + Offset(widget.waveStyle.spacing, 0.0);
         _isScrolled = false;
       } else {
         _initialPosition = 0.0;
         _totalBackDistance =
-            _totalBackDistance + Offset(_waveStyle.spacing, 0.0);
+            _totalBackDistance + Offset(widget.waveStyle.spacing, 0.0);
       }
     }
     if (_recorderController.shouldClearLabels) {
@@ -267,9 +268,9 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
     final deltaDx = details.delta.dx;
     final dragOffset = _dragOffset.dx;
     final totalBackDistanceDx = -_totalBackDistance.dx;
-    final halfWidth = _size.width / 2;
+    final halfWidth = widget.size.width / 2;
     final waveformWidth =
-        _waveStyle.spacing * _recorderController.waveData.length;
+        widget.waveStyle.spacing * _recorderController.waveData.length;
 
     ///left to right
     if (totalBackDistanceDx + dragOffset + deltaDx < halfWidth &&
@@ -292,9 +293,9 @@ class _AudioWaveformsState extends State<AudioWaveforms> {
     final dragOffsetDx = _dragOffset.dx;
 
     final waveformWidth =
-        _waveStyle.spacing * _recorderController.waveData.length;
+        widget.waveStyle.spacing * _recorderController.waveData.length;
 
-    final halfWidth = _size.width / 2;
+    final halfWidth = widget.size.width / 2;
 
     /// right to left
     if (direction < 0 && dragOffsetDx > -halfWidth) {
